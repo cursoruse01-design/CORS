@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Free Movie Site</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    
+    <style>
+        body { font-family: sans-serif; background: #1a1a1a; color: white; text-align: center; }
+        .grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; padding: 20px; }
+        .card { background: #333; padding: 10px; border-radius: 8px; cursor: pointer; width: 200px; transition: 0.3s; }
+        .card:hover { transform: scale(1.05); background: #444; }
+        .card img { width: 100%; border-radius: 5px; }
+        #player-container { display: none; margin-top: 20px; }
+        video { width: 80%; max-width: 800px; border: 2px solid red; }
+    </style>
+</head>
+<body>
+
+    <h1>🎬 My Free Movies</h1>
+
+    <div class="grid">
+        <div class="card" onclick="playMovie('https://xenna400goa.com/playlist/bPZaj+BQXo8x36H5Jigwx0ss+M4UvRESjoSbbs7S1gMHVJhpozqC3BfCEhhtKGPe1mrkxrkB530nBLbrj5cgyUjDTc3lwY$gLOR6B1qs+$M+GwaJEQnlCpelagKKz7ynUZqyxhtvLTWA8cBx0kOeciUz0WAQEs3OrA6N6FkH8bc!.txt')">
+            <img src="https://image.tmdb.org/t/p/w500/r7vmZjiyZw9rpJWQ089bWXhviV.jpg" alt="Poster">
+            <h3>Movie 1 (Hindi)</h3>
+        </div>
+        
+        <div class="card" onclick="playMovie('YAHAN_DUSRI_PLAYLIST_URL_DAALO')">
+            <img src="https://via.placeholder.com/200x300?text=Movie+2" alt="Poster">
+            <h3>Movie 2</h3>
+        </div>
+    </div>
+
+    <div id="player-container">
+        <h2 id="status">Loading...</h2>
+        <video id="video" controls></video>
+    </div>
+
+    <script>
+        // --- 0 Rupee Logic Starts Here ---
+
+        async function playMovie(playlistUrl) {
+            const status = document.getElementById('status');
+            const playerContainer = document.getElementById('player-container');
+            playerContainer.style.display = 'block';
+            status.innerText = "🔓 Decrypting Link...";
+
+            try {
+                // Step 1: CORS Proxy se Data mangwana (Free Trick)
+                // Hum 'allorigins.win' use kar rahe hain taaki browser block na kare
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(playlistUrl)}`;
+                const response = await fetch(proxyUrl);
+                const data = await response.json();
+                
+                // Proxy response json string mein deta hai, use parse karo
+                const realData = JSON.parse(data.contents);
+                
+                // Pehla video (Hindi) uthao
+                const targetVideo = realData[0];
+                const encryptedFile = targetVideo.file;
+                const keyId = targetVideo.id;
+
+                // Step 2: Decrypt karna (Client Side AES)
+                const finalStreamUrl = decryptAES(encryptedFile, keyId);
+
+                if (finalStreamUrl.includes("http")) {
+                    status.innerText = "▶ Playing Now";
+                    startHlsPlayer(finalStreamUrl);
+                } else {
+                    status.innerText = "❌ Decryption Failed!";
+                }
+
+            } catch (e) {
+                console.error(e);
+                status.innerText = "❌ Error: " + e.message;
+            }
+        }
+
+        function decryptAES(encryptedStr, keyHex) {
+            // 1. Cleaning
+            let cleanStr = encryptedStr.replace(/\s/g, '').replace(/^~/, '');
+            let fixedStr = cleanStr.replace(/-/g, '+').replace(/\$/g, '/').replace(/!/g, '=');
+
+            // 2. Setup Key & IV (Hex to WordArray)
+            let key = CryptoJS.enc.Hex.parse(keyHex);
+            let iv = CryptoJS.enc.Hex.parse(keyHex);
+
+            // 3. Decrypt
+            let decrypted = CryptoJS.AES.decrypt(fixedStr, key, {
+                iv: iv,
+                mode: CryptoJS.mode.CBC,
+                padding: CryptoJS.pad.Pkcs7
+            });
+
+            // 4. Convert to String
+            return decrypted.toString(CryptoJS.enc.Utf8);
+        }
+
+        function startHlsPlayer(url) {
+            var video = document.getElementById('video');
+            if (Hls.isSupported()) {
+                var hls = new Hls();
+                hls.loadSource(url);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                    video.play();
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = url;
+                video.play();
+            }
+        }
+    </script>
+</body>
+</html>
